@@ -1,7 +1,7 @@
 'use client';
 
 import { subjectsData } from '@/lib/data';
-import { BookOpen, ChevronRight, Menu, X } from 'lucide-react';
+import { BookOpen, ChevronRight, Menu, X, Timer } from 'lucide-react';
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -120,6 +120,22 @@ export default function Sidebar({
                   </motion.div>
                 )}
               </AnimatePresence>
+            </motion.button>
+
+            <motion.button
+              layout
+              onClick={() => {
+                window.location.href = '/focus';
+                if (window.innerWidth < 1024) onMobileMenuToggle();
+              }}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 text-slate-400 hover:text-white hover:bg-slate-800/50"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center">
+                <Timer size={16} className="text-purple-400" />
+              </div>
+              <span className="font-medium">Focus Timer</span>
             </motion.button>
 
             {subjectsData.map((subject) => (

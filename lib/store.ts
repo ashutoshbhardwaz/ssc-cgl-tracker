@@ -18,8 +18,14 @@ export interface StudyState {
   subjects: {
     [subjectId: string]: SubjectProgress;
   };
+  totalStudyMinutes: number;
+  cyclesCompleted: number;
+  currentXP: number;
   updateLecture: (subjectId: string, lectureId: number, updates: Partial<LectureProgress>) => void;
   markRevisionComplete: (subjectId: string, lectureId: number) => void;
+  addStudyMinutes: (minutes: number) => void;
+  completeCycle: () => void;
+  addXP: (xp: number) => void;
   exportProgress: () => string;
   importProgress: (jsonData: string) => void;
   resetProgress: () => void;
@@ -27,6 +33,9 @@ export interface StudyState {
 
 const initialState = {
   subjects: {},
+  totalStudyMinutes: 0,
+  cyclesCompleted: 0,
+  currentXP: 0,
 };
 
 export const useStudyStore = create<StudyState>()(
@@ -115,6 +124,24 @@ export const useStudyStore = create<StudyState>()(
           console.error('Failed to import progress:', error);
           throw new Error('Invalid JSON data');
         }
+      },
+
+      addStudyMinutes: (minutes: number) => {
+        set((state) => ({
+          totalStudyMinutes: state.totalStudyMinutes + minutes,
+        }));
+      },
+
+      completeCycle: () => {
+        set((state) => ({
+          cyclesCompleted: state.cyclesCompleted + 1,
+        }));
+      },
+
+      addXP: (xp: number) => {
+        set((state) => ({
+          currentXP: state.currentXP + xp,
+        }));
       },
 
       resetProgress: () => {
