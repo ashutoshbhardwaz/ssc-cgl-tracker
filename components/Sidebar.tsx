@@ -3,6 +3,7 @@
 import { subjectsData } from '@/lib/data';
 import { BookOpen, ChevronRight, Menu, X } from 'lucide-react';
 import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface SidebarProps {
   selectedSubject: string | null;
@@ -20,20 +21,48 @@ export default function Sidebar({
   return (
     <>
       {/* Mobile menu button */}
-      <button
+      <motion.button
         onClick={onMobileMenuToggle}
         className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-lg glass-card hover:bg-slate-700/50 transition-colors"
+        whileTap={{ scale: 0.95 }}
       >
-        {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-      </button>
+        <AnimatePresence mode="wait">
+          {isMobileMenuOpen ? (
+            <motion.div
+              key="close"
+              initial={{ rotate: -90, opacity: 0 }}
+              animate={{ rotate: 0, opacity: 1 }}
+              exit={{ rotate: 90, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+            >
+              <X size={24} />
+            </motion.div>
+          ) : (
+            <motion.div
+              key="menu"
+              initial={{ rotate: 90, opacity: 0 }}
+              animate={{ rotate: 0, opacity: 1 }}
+              exit={{ rotate: -90, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+            >
+              <Menu size={24} />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.button>
 
       {/* Overlay for mobile */}
-      {isMobileMenuOpen && (
-        <div
-          className="lg:hidden fixed inset-0 bg-black/50 z-30"
-          onClick={onMobileMenuToggle}
-        />
-      )}
+      <AnimatePresence>
+        {isMobileMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="lg:hidden fixed inset-0 bg-black/50 z-30"
+            onClick={onMobileMenuToggle}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Sidebar */}
       <aside
@@ -55,7 +84,8 @@ export default function Sidebar({
 
           {/* Navigation */}
           <nav className="flex-1 overflow-y-auto space-y-2">
-            <button
+            <motion.button
+              layout
               onClick={() => {
                 onSubjectSelect(null);
                 if (window.innerWidth < 1024) onMobileMenuToggle();
@@ -65,16 +95,36 @@ export default function Sidebar({
                   ? 'bg-gradient-to-r from-blue-500/20 to-purple-500/20 border border-blue-500/30 text-white'
                   : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
               }`}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
             >
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center">
+              <motion.div
+                className="w-8 h-8 rounded-lg bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center"
+                animate={{
+                  backgroundColor: selectedSubject === null ? 'rgba(59, 130, 246, 0.3)' : 'rgba(51, 65, 85, 0.8)',
+                }}
+                transition={{ duration: 0.3 }}
+              >
                 <BookOpen size={16} />
-              </div>
+              </motion.div>
               <span className="font-medium">Dashboard</span>
-              {selectedSubject === null && <ChevronRight size={16} className="ml-auto" />}
-            </button>
+              <AnimatePresence>
+                {selectedSubject === null && (
+                  <motion.div
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -10 }}
+                    className="ml-auto"
+                  >
+                    <ChevronRight size={16} />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.button>
 
             {subjectsData.map((subject) => (
-              <button
+              <motion.button
+                layout
                 key={subject.id}
                 onClick={() => {
                   onSubjectSelect(subject.id);
@@ -85,18 +135,37 @@ export default function Sidebar({
                     ? `bg-gradient-to-r from-${subject.color}-500/20 to-${subject.color}-600/20 border border-${subject.color}-500/30 text-white`
                     : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
                 }`}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
               >
-                <div
+                <motion.div
                   className={`w-8 h-8 rounded-lg bg-gradient-to-br from-${subject.color}-500/30 to-${subject.color}-600/30 flex items-center justify-center`}
+                  animate={{
+                    backgroundColor: selectedSubject === subject.id 
+                      ? `rgba(var(--${subject.color}-rgb), 0.3)` 
+                      : 'rgba(51, 65, 85, 0.8)',
+                  }}
+                  transition={{ duration: 0.3 }}
                 >
                   <BookOpen size={16} className={`text-${subject.color}-400`} />
-                </div>
+                </motion.div>
                 <div className="flex-1 text-left">
                   <span className="font-medium block">{subject.name}</span>
                   <span className="text-xs text-slate-500">{subject.faculty}</span>
                 </div>
-                {selectedSubject === subject.id && <ChevronRight size={16} className="ml-auto" />}
-              </button>
+                <AnimatePresence>
+                  {selectedSubject === subject.id && (
+                    <motion.div
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -10 }}
+                      className="ml-auto"
+                    >
+                      <ChevronRight size={16} />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.button>
             ))}
           </nav>
 

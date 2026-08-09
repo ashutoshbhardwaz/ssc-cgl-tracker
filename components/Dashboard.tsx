@@ -1,29 +1,79 @@
 'use client';
 
 import { subjectsData, phases, dailyRoutine } from '@/lib/data';
-import { Target, TrendingUp, Clock, CheckCircle, BookOpen, Moon, Play, PenTool } from 'lucide-react';
+import { Target, TrendingUp, Clock, CheckCircle, BookOpen, Moon, Play, PenTool, Download, Upload } from 'lucide-react';
+import { useStudyStore } from '@/lib/store';
+import CircularProgress from './CircularProgress';
+import Heatmap from './Heatmap';
+import Pomodoro from './Pomodoro';
 
-interface DashboardProps {
-  subjectProgress: Record<string, number>;
-}
+export default function Dashboard() {
+  const { subjects, exportProgress, importProgress, resetProgress } = useStudyStore();
 
-export default function Dashboard({ subjectProgress }: DashboardProps) {
+  const calculateSubjectProgress = (subjectId: string) => {
+    const subjectProgress = subjects[subjectId] || {};
+    const subject = subjectsData.find(s => s.id === subjectId);
+    if (!subject) return 0;
+
+    const completedLectures = Object.values(subjectProgress).filter(
+      (progress) =>
+        progress.lectureWatched &&
+        progress.practiceDone &&
+        progress.pyqDone &&
+        progress.revisionDone
+    ).length;
+
+    return Math.round((completedLectures / subject.totalLectures) * 100);
+  };
+
   const totalLectures = subjectsData.reduce((sum, subject) => sum + subject.totalLectures, 0);
-  const totalCompleted = Object.values(subjectProgress).reduce((sum, progress) => {
-    const subject = subjectsData.find(s => subjectProgress[s.id] !== undefined);
-    if (subject) {
-      return sum + Math.round((progress / 100) * subject.totalLectures);
-    }
-    return sum;
+  const totalCompleted = subjectsData.reduce((sum, subject) => {
+    const progress = calculateSubjectProgress(subject.id);
+    return sum + Math.round((progress / 100) * subject.totalLectures);
   }, 0);
   
   const overallProgress = totalLectures > 0 ? Math.round((totalCompleted / totalLectures) * 100) : 0;
 
   const getProgressColor = (progress: number) => {
-    if (progress >= 75) return 'from-emerald-500 to-green-600';
-    if (progress >= 50) return 'from-blue-500 to-cyan-600';
-    if (progress >= 25) return 'from-yellow-500 to-orange-600';
-    return 'from-red-500 to-pink-600';
+    if (progress >= 75) return '#10b981';
+    if (progress >= 50) return '#3b82f6';
+    if (progress >= 25) return '#f59e0b';
+    return '#ef4444';
+  };
+
+  const handleExport = () => {
+    const data = exportProgress();
+    const blob = new Blob([data], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'ssc-cgl-progress.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImport = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'application/json';
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const content = e.target?.result as string;
+          importProgress(content);
+        };
+        reader.readAsText(file);
+      }
+    };
+    input.click();
+  };
+
+  const handleReset = () => {
+    if (confirm('Are you sure you want to reset all progress? This cannot be undone.')) {
+      resetProgress();
+    }
   };
 
   return (
@@ -34,57 +84,60 @@ export default function Dashboard({ subjectProgress }: DashboardProps) {
         <p className="text-slate-400">SAFAR 3.0 - Your SSC CGL 2027 Preparation Journey</p>
       </div>
 
-      {/* Overall Progress */}
+      {/* Overall Progress with Circular Ring */}
       <div className="glass-card rounded-2xl p-6 lg:p-8">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h2 className="text-xl font-semibold text-white mb-1">Total Syllabus Completion</h2>
-            <p className="text-slate-400 text-sm">Across all subjects</p>
+        <div className="flex flex-col lg:flex-row items-center gap-8">
+          <div className="flex-shrink-0">
+            <CircularProgress progress={overallProgress} size={160} strokeWidth={12} color={getProgressColor(overallProgress)}>
+              <div className="text-center">
+                <p className="text-4xl font-bold text-white">{overallProgress}%</p>
+                <p className="text-xs text-slate-400">Complete</p>
+              </div>
+            </CircularProgress>
           </div>
-          <div className="text-right">
-            <p className="text-4xl font-bold text-white">{overallProgress}%</p>
-            <p className="text-slate-400 text-sm">{totalCompleted}/{totalLectures} lectures</p>
+          <div className="flex-1">
+            <h2 className="text-xl font-semibold text-white mb-2">Total Syllabus Completion</h2>
+            <p className="text-slate-400 text-sm mb-4">Across all subjects</p>
+            <div className="flex items-center gap-6">
+              <div>
+                <p className="text-2xl font-bold text-white">{totalCompleted}</p>
+                <p className="text-xs text-slate-400">Completed</p>
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-white">{totalLectures}</p>
+                <p className="text-xs text-slate-400">Total Lectures</p>
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-white">{totalLectures - totalCompleted}</p>
+                <p className="text-xs text-slate-400">Remaining</p>
+              </div>
+            </div>
           </div>
-        </div>
-        <div className="h-4 bg-slate-800 rounded-full overflow-hidden">
-          <div
-            className={`h-full bg-gradient-to-r ${getProgressColor(overallProgress)} transition-all duration-500 ease-out rounded-full`}
-            style={{ width: `${overallProgress}%` }}
-          />
         </div>
       </div>
 
-      {/* Subject Progress Grid */}
+      {/* Subject Progress Grid with Circular Progress */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {subjectsData.map((subject) => {
-          const progress = subjectProgress[subject.id] || 0;
+          const progress = calculateSubjectProgress(subject.id);
           const completedLectures = Math.round((progress / 100) * subject.totalLectures);
+          const color = getProgressColor(progress);
           
           return (
             <div
               key={subject.id}
               className={`glass-card rounded-xl p-5 hover:scale-[1.02] transition-transform duration-200 ${subject.glowClass}`}
             >
-              <div className="flex items-start justify-between mb-3">
+              <div className="flex items-start justify-between mb-4">
                 <div className="flex-1">
                   <h3 className="font-semibold text-white mb-1">{subject.name}</h3>
                   <p className="text-xs text-slate-400">{subject.faculty}</p>
                 </div>
-                <div className={`w-10 h-10 rounded-lg bg-gradient-to-br from-${subject.color}-500/20 to-${subject.color}-600/20 flex items-center justify-center`}>
-                  <BookOpen size={18} className={`text-${subject.color}-400`} />
-                </div>
+                <CircularProgress progress={progress} size={60} strokeWidth={6} color={color}>
+                  <span className="text-xs font-bold text-white">{progress}%</span>
+                </CircularProgress>
               </div>
               <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-slate-400">Progress</span>
-                  <span className="text-white font-medium">{progress}%</span>
-                </div>
-                <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full bg-gradient-to-r from-${subject.color}-500 to-${subject.color}-600 transition-all duration-300 rounded-full`}
-                    style={{ width: `${progress}%` }}
-                  />
-                </div>
                 <p className="text-xs text-slate-500">
                   {completedLectures}/{subject.totalLectures} lectures completed
                 </p>
@@ -92,6 +145,39 @@ export default function Dashboard({ subjectProgress }: DashboardProps) {
             </div>
           );
         })}
+      </div>
+
+      {/* Heatmap and Pomodoro Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Heatmap />
+        <Pomodoro />
+      </div>
+
+      {/* Data Management */}
+      <div className="glass-card rounded-2xl p-6">
+        <h3 className="text-lg font-semibold text-white mb-4">Data Management</h3>
+        <div className="flex flex-wrap gap-4">
+          <button
+            onClick={handleExport}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-500 hover:bg-blue-600 text-white transition-colors"
+          >
+            <Download size={18} />
+            Export Progress
+          </button>
+          <button
+            onClick={handleImport}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white transition-colors"
+          >
+            <Upload size={18} />
+            Import Progress
+          </button>
+          <button
+            onClick={handleReset}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-500 hover:bg-red-600 text-white transition-colors"
+          >
+            Reset All Progress
+          </button>
+        </div>
       </div>
 
       {/* Daily Study Routine */}

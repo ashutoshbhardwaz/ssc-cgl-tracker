@@ -1,26 +1,53 @@
 'use client';
 
 import { Subject, Lecture } from '@/lib/data';
-import { Check, CheckCircle, BookOpen, User, TrendingUp } from 'lucide-react';
+import { Check, CheckCircle, BookOpen, User, TrendingUp, AlertCircle, RefreshCw } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { useStudyStore } from '@/lib/store';
+import { differenceInDays, parseISO } from 'date-fns';
 
 interface SubjectViewProps {
   subject: Subject;
-  onLectureUpdate: (lectureId: number, updates: Partial<Lecture>) => void;
 }
 
-export default function SubjectView({ subject, onLectureUpdate }: SubjectViewProps) {
-  const completedLectures = subject.lectures.filter(
-    (lecture) =>
-      lecture.lectureWatched &&
-      lecture.practiceDone &&
-      lecture.pyqDone &&
-      lecture.revisionDone
-  ).length;
+export default function SubjectView({ subject }: SubjectViewProps) {
+  const { subjects, updateLecture, markRevisionComplete } = useStudyStore();
+  const subjectProgress = subjects[subject.id] || {};
+
+  const completedLectures = subject.lectures.filter((lecture) => {
+    const progress = subjectProgress[lecture.id];
+    return progress &&
+      progress.lectureWatched &&
+      progress.practiceDone &&
+      progress.pyqDone &&
+      progress.revisionDone;
+  }).length;
 
   const progress = Math.round((completedLectures / subject.totalLectures) * 100);
 
-  const isLectureComplete = (lecture: Lecture) => {
-    return lecture.lectureWatched && lecture.practiceDone && lecture.pyqDone && lecture.revisionDone;
+  const isLectureComplete = (lectureId: number) => {
+    const progress = subjectProgress[lectureId];
+    return progress &&
+      progress.lectureWatched &&
+      progress.practiceDone &&
+      progress.pyqDone &&
+      progress.revisionDone;
+  };
+
+  const isDueForRevision = (lectureId: number) => {
+    const progress = subjectProgress[lectureId];
+    if (!progress || !progress.completedAt) return false;
+    
+    const daysSinceCompletion = differenceInDays(new Date(), parseISO(progress.completedAt));
+    return daysSinceCompletion > 7;
+  };
+
+  const handleLectureUpdate = (lectureId: number, field: string, value: boolean) => {
+    updateLecture(subject.id, lectureId, { [field]: value });
+  };
+
+  const handleRevisionComplete = (lectureId: number) => {
+    markRevisionComplete(subject.id, lectureId);
   };
 
   return (
@@ -70,15 +97,28 @@ export default function SubjectView({ subject, onLectureUpdate }: SubjectViewPro
               </tr>
             </thead>
             <tbody>
-              {subject.lectures.map((lecture) => (
-                <tr
+              {subject.lectures.map((lecture, index) => (
+                <motion.tr
                   key={lecture.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.05, duration: 0.3 }}
                   className={`border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors ${
-                    isLectureComplete(lecture) ? 'bg-emerald-500/5' : ''
+                    isLectureComplete(lecture.id) ? 'bg-emerald-500/5' : ''
+                  } ${
+                    isDueForRevision(lecture.id) ? 'bg-orange-500/10' : ''
                   }`}
                 >
                   <td className="p-4">
-                    <span className="text-white font-medium">#{lecture.lectureNumber}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-white font-medium">#{lecture.lectureNumber}</span>
+                      {isDueForRevision(lecture.id) && (
+                        <span className="px-2 py-1 rounded-full text-xs font-medium bg-orange-500/20 text-orange-400 border border-orange-500/30 flex items-center gap-1">
+                          <AlertCircle size={12} />
+                          Due for Revision
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="p-4">
                     <span className="text-slate-300">{lecture.chapter}</span>
@@ -89,68 +129,83 @@ export default function SubjectView({ subject, onLectureUpdate }: SubjectViewPro
                   <td className="p-4 text-center">
                     <button
                       onClick={() =>
-                        onLectureUpdate(lecture.id, { lectureWatched: !lecture.lectureWatched })
+                        handleLectureUpdate(lecture.id, 'lectureWatched', !subjectProgress[lecture.id]?.lectureWatched)
                       }
                       className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all ${
-                        lecture.lectureWatched
+                        subjectProgress[lecture.id]?.lectureWatched
                           ? 'bg-blue-500 border-blue-500'
                           : 'border-slate-600 hover:border-blue-500'
                       }`}
                     >
-                      {lecture.lectureWatched && <Check size={14} className="text-white" />}
+                      {subjectProgress[lecture.id]?.lectureWatched && <Check size={14} className="text-white" />}
                     </button>
                   </td>
                   <td className="p-4 text-center">
                     <button
                       onClick={() =>
-                        onLectureUpdate(lecture.id, { practiceDone: !lecture.practiceDone })
+                        handleLectureUpdate(lecture.id, 'practiceDone', !subjectProgress[lecture.id]?.practiceDone)
                       }
                       className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all ${
-                        lecture.practiceDone
+                        subjectProgress[lecture.id]?.practiceDone
                           ? 'bg-emerald-500 border-emerald-500'
                           : 'border-slate-600 hover:border-emerald-500'
                       }`}
                     >
-                      {lecture.practiceDone && <Check size={14} className="text-white" />}
-                    </button>
-                  </td>
-                  <td className="p-4 text-center">
-                    <button
-                      onClick={() => onLectureUpdate(lecture.id, { pyqDone: !lecture.pyqDone })}
-                      className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all ${
-                        lecture.pyqDone
-                          ? 'bg-purple-500 border-purple-500'
-                          : 'border-slate-600 hover:border-purple-500'
-                      }`}
-                    >
-                      {lecture.pyqDone && <Check size={14} className="text-white" />}
+                      {subjectProgress[lecture.id]?.practiceDone && <Check size={14} className="text-white" />}
                     </button>
                   </td>
                   <td className="p-4 text-center">
                     <button
                       onClick={() =>
-                        onLectureUpdate(lecture.id, { revisionDone: !lecture.revisionDone })
+                        handleLectureUpdate(lecture.id, 'pyqDone', !subjectProgress[lecture.id]?.pyqDone)
                       }
                       className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all ${
-                        lecture.revisionDone
+                        subjectProgress[lecture.id]?.pyqDone
+                          ? 'bg-purple-500 border-purple-500'
+                          : 'border-slate-600 hover:border-purple-500'
+                      }`}
+                    >
+                      {subjectProgress[lecture.id]?.pyqDone && <Check size={14} className="text-white" />}
+                    </button>
+                  </td>
+                  <td className="p-4 text-center">
+                    <button
+                      onClick={() =>
+                        handleLectureUpdate(lecture.id, 'revisionDone', !subjectProgress[lecture.id]?.revisionDone)
+                      }
+                      className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all ${
+                        subjectProgress[lecture.id]?.revisionDone
                           ? 'bg-orange-500 border-orange-500'
                           : 'border-slate-600 hover:border-orange-500'
                       }`}
                     >
-                      {lecture.revisionDone && <Check size={14} className="text-white" />}
+                      {subjectProgress[lecture.id]?.revisionDone && <Check size={14} className="text-white" />}
                     </button>
                   </td>
                   <td className="p-4 text-center">
-                    {isLectureComplete(lecture) ? (
-                      <div className="flex items-center justify-center gap-1 text-emerald-400">
-                        <CheckCircle size={16} />
-                        <span className="text-sm font-medium">Completed</span>
+                    {isLectureComplete(lecture.id) ? (
+                      <div className="flex items-center justify-center gap-2">
+                        {isDueForRevision(lecture.id) ? (
+                          <button
+                            onClick={() => handleRevisionComplete(lecture.id)}
+                            className="flex items-center gap-1 text-orange-400 hover:text-orange-300 transition-colors"
+                            title="Mark revision as complete"
+                          >
+                            <RefreshCw size={16} />
+                            <span className="text-sm font-medium">Revise Now</span>
+                          </button>
+                        ) : (
+                          <div className="flex items-center justify-center gap-1 text-emerald-400">
+                            <CheckCircle size={16} />
+                            <span className="text-sm font-medium">Completed</span>
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <span className="text-slate-500 text-sm">In Progress</span>
                     )}
                   </td>
-                </tr>
+                </motion.tr>
               ))}
             </tbody>
           </table>
